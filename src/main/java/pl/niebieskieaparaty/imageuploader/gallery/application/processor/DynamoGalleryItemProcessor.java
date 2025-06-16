@@ -11,6 +11,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
+import static pl.niebieskieaparaty.imageuploader.upload.application.constant.UploadRouteConstant.*;
+
 @ApplicationScoped
 public class DynamoGalleryItemProcessor implements Processor {
 
@@ -23,14 +25,17 @@ public class DynamoGalleryItemProcessor implements Processor {
 
     private Map<String, AttributeValue> toDynamoGalleryItem(final UploadedData data) {
         final var item = new HashMap<String, AttributeValue>();
-        item.put("fileName", AttributeValue.fromS(data.fileName()));
-        item.put("eventId", AttributeValue.fromS(data.eventId()));
-        item.put("username", AttributeValue.fromS(data.username()));
-        item.put("originalFileObjectKey", AttributeValue.fromS(data.originalFileObjectKey()));
-        item.put("originalFilePresignedUrl", AttributeValue.fromS(data.originalFilePresignedUrl()));
-        item.put("compressedFileObjectKey", AttributeValue.fromS(data.compressedFileObjectKey()));
-        item.put("compressedFilePresignedUrl", AttributeValue.fromS(data.compressedFilePresignedUrl()));
-        item.put("presignDateTime", AttributeValue.fromS(
+        item.put(FILE_NAME, AttributeValue.fromS(data.fileName()));
+        item.put(COMPRESSED_FILE_NAME, AttributeValue.fromS(data.compressedFileName()));
+        item.put(EVENT_ID, AttributeValue.fromS(data.eventId()));
+        item.put(USERNAME, AttributeValue.fromS(data.username()));
+        item.put(ORIGINAL_FILE_OBJECT_KEY, AttributeValue.fromS(data.originalFileObjectKey()));
+        item.put(ORIGINAL_FILE_PRESIGNED_URL, AttributeValue.fromS(data.originalFilePresignedUrl()));
+        item.put(COMPRESSED_FILE_OBJECT_KEY, AttributeValue.fromS(data.compressedFileObjectKey()));
+        item.put(COMPRESSED_FILE_PRESIGNED_URL, AttributeValue.fromS(data.compressedFilePresignedUrl()));
+        item.put(COMPRESSED_FILE_WIDTH, AttributeValue.fromS(data.compressedFileWidth()));
+        item.put(COMPRESSED_FILE_HEIGHT, AttributeValue.fromS(data.compressedFileHeight()));
+        item.put(PRESIGN_DATE_TIME, AttributeValue.fromS(
                 data.presignDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
         );
         return item;

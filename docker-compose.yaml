@@ -1,0 +1,17 @@
+version: '3.8'
+
+networks:
+  image-uploader-network:
+    driver: bridge
+
+services:
+  image-uploader:
+    build:
+      context: .
+      dockerfile: src/main/docker/Dockerfile.jvm
+    ports:
+      - "8080:8080"
+    networks:
+      - image-uploader-network
+    env_file:
+      - .env

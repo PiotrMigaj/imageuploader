@@ -41,7 +41,8 @@ class GalleryRoute extends RouteBuilder {
 
         getContext().getRegistry().bind("galleryCustomDynamoClient", client);
 
-        from(GalleryRouteApi.DIRECT_SAVE_UPLOADED_DATA_IN_DYNAMODB).routeId("saveUploadedDataInDynamoDb")
+        from(GalleryRouteApi.DIRECT_SAVE_UPLOADED_DATA_IN_DYNAMODB)
+                .routeId("saveUploadedDataInDynamoDb")
                 .process(dynamoGalleryItemProcessor)
                 .log("Uploading data to dynamoDb: ${body}")
                 .setHeader(OPERATION, constant(Ddb2Operations.PutItem))

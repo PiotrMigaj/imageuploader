@@ -8,14 +8,15 @@ import org.apache.camel.attachment.AttachmentMessage;
 
 @ApplicationScoped
 @Slf4j
-public class UploadImageToBucketProcessor implements Processor {
+public class UploadOriginalImageToBucketProcessor implements Processor {
+
+    private static final String ORIGINAL_PATH = "%s/%s/images/original/%s";
 
     @Override
     public void process(final Exchange exchange) throws Exception {
         // Extract form fields from headers or body
         final var eventId = exchange.getIn().getHeader("eventId", String.class);
         final var username = exchange.getIn().getHeader("username", String.class);
-        final var bucketPath = exchange.getIn().getHeader("bucketPath", String.class);
 
         if (eventId == null || username == null) {
             throw new IllegalArgumentException("Missing required fields: eventId and username.");
@@ -39,11 +40,10 @@ public class UploadImageToBucketProcessor implements Processor {
         }
 
         // Build S3 key (folder path + filename)
-        final var s3Key = String.format(bucketPath, username, eventId, originalFileName);
+        final var s3Key = String.format(ORIGINAL_PATH, username, eventId, originalFileName);
 
         // Set S3 headers
         exchange.getIn().setHeader("CamelAwsS3Key", s3Key);
-        exchange.getIn().setHeader("CamelAwsS3BucketName", "niebieskie-aparaty-test-upload");
 
         // Set file content as body
         exchange.getIn().setBody(dataHandler.getInputStream());

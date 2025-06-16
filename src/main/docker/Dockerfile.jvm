@@ -82,6 +82,21 @@ FROM registry.access.redhat.com/ubi9/openjdk-21:1.21
 
 ENV LANGUAGE='en_US:en'
 
+# --- Install cwebp ---
+USER root
+RUN microdnf install -y \
+      wget \
+      tar \
+      gzip \
+      libjpeg \
+      libpng \
+    && cd /tmp \
+    && wget https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.3.2-linux-x86-64.tar.gz \
+    && tar -xzf libwebp-1.3.2-linux-x86-64.tar.gz \
+    && cp libwebp-1.3.2-linux-x86-64/bin/cwebp /usr/local/bin/ \
+    && chmod +x /usr/local/bin/cwebp \
+    && rm -rf /tmp/*
+
 
 # We make four distinct layers so if there are application changes the library layers can be re-used
 COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
