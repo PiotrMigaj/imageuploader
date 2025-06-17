@@ -7,17 +7,24 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @Path("/")
 @RequiredArgsConstructor
+@Slf4j
 class UploadPage {
 
     private final Template index;
 
+    @ConfigProperty(name = "base-backend-path")
+    String baseBackendPath;
+
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance get() {
-        return index.instance();
+        log.info("Base backend path: {}", baseBackendPath);
+        return index.instance().data("baseBackendPath", baseBackendPath);
     }
 }
 

@@ -164,6 +164,7 @@
         const message = ref('');
         const success = ref(false);
         const uploading = ref(false);
+        const fullUploadPath = '{baseBackendPath}' + '/api/uploads';
 
         const overallProgress = computed(() => {
           if (files.value.length === 0) return 0;
@@ -214,7 +215,7 @@
             formData.append('username', username.value);
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/uploads', true);
+            xhr.open('POST', fullUploadPath, true);
 
             xhr.upload.onprogress = (event) => {
               if (event.lengthComputable) {
