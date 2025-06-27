@@ -25,7 +25,7 @@ public class UpdateEventWithCamelGalleryProcessor implements Processor {
 
         final var updateMap = new HashMap<String, AttributeValueUpdate>();
         updateMap.put("camelGallery", AttributeValueUpdate.builder()
-                .value(AttributeValue.builder().s("true").build()) // or .bool(true) if the field is boolean
+                .value(AttributeValue.builder().bool(true).build()) // or .bool(true) if the field is boolean
                 .action("PUT")
                 .build());
 
