@@ -6,6 +6,8 @@ import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.rest.RestBindingMode;
 import org.apache.camel.model.rest.RestParamType;
 import pl.niebieskieaparaty.imageuploader.upload.application.route.UploadRouteApi;
+import pl.niebieskieaparaty.imageuploader.upload.core.CompleteUploadRequest;
+import pl.niebieskieaparaty.imageuploader.upload.core.EventId;
 
 @ApplicationScoped
 @Slf4j
@@ -49,5 +51,12 @@ class UploadRestRoute extends RouteBuilder {
                     .required(true)
                 .endParam()
                 .to(UploadRouteApi.DIRECT_UPLOAD_IMAGE_TO_BUCKETS);
+
+        rest("/uploads/complete")
+            .post()
+                .consumes("application/json")
+                .produces("text/plain")
+                .type(CompleteUploadRequest.class)
+                .to(UploadRouteApi.COMPLETE_UPLOAD);
     }
 }

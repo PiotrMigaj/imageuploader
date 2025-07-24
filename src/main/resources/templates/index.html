@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8"/>
     <title>IMAGE UPLOADER | NIEBIESKIE APARATY</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon"/>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Italiana&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Italiana&family=Montserrat:wght@300;400;500;600&display=swap"
+          rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <style>
@@ -59,23 +60,26 @@
 <nav class="navbar navbar-custom d-flex justify-content-between align-items-center">
     <span class="navbar-brand">NIEBIESKIE APARATY – IMAGE UPLOADER</span>
     <button class="logout-btn" @click="logout">
-        <i class="bi bi-box-arrow-right"></i>
-        Logout
+        <i class="bi bi-box-arrow-right"></i> Logout
     </button>
 </nav>
 
 <div class="container py-4">
     <div class="row g-3 align-items-end">
-        <div class="col-md-5">
+        <div class="col-md-4">
             <label for="eventId" class="form-label">Event ID</label>
             <input type="text" id="eventId" class="form-control" v-model="eventId" placeholder="Enter Event ID">
         </div>
-        <div class="col-md-5">
+        <div class="col-md-4">
             <label for="username" class="form-label">Username</label>
             <input type="text" id="username" class="form-control" v-model="username" placeholder="Enter Username">
         </div>
         <div class="col-md-2">
-            <label class="form-label d-block invisible">Action</label> <!-- invisible label for spacing -->
+            <label for="batchSize" class="form-label">Batch Size</label>
+            <input type="number" id="batchSize" class="form-control" v-model.number="batchSize" min="1">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label d-block invisible">Action</label>
             <button class="btn btn-dark w-100" @click="selectEvent">
                 <i class="bi bi-check-circle me-1"></i>Select
             </button>
@@ -83,7 +87,6 @@
     </div>
 </div>
 
-<!-- Inside <body> just after the form fields -->
 <div class="container py-4">
     <div class="row mb-3">
         <div class="col">
@@ -95,17 +98,22 @@
     <div class="row mb-3" v-if="files.length">
         <div class="col">
             <ul class="list-group">
-                <li class="list-group-item d-flex justify-content-between align-items-center" v-for="file in files" :key="file.name">
+                <li class="list-group-item d-flex justify-content-between align-items-center" v-for="file in files"
+                    :key="file.name">
                     {{ file.name }}
                     <div class="progress w-50">
-                        <div class="progress-bar" :style="{ width: file.progress + '%' }">{{ Math.round(file.progress) }}%</div>
+                        <div class="progress-bar" :style="{ width: file.progress + '%' }">{{ Math.round(file.progress)
+                            }}%
+                        </div>
                     </div>
                 </li>
             </ul>
             <div class="mt-3">
                 <strong>Overall Progress:</strong>
                 <div class="progress">
-                    <div class="progress-bar bg-success" :style="{ width: overallProgress + '%' }">{{ Math.round(overallProgress) }}%</div>
+                    <div class="progress-bar bg-success" :style="{ width: overallProgress + '%' }">{{
+                        Math.round(overallProgress) }}%
+                    </div>
                 </div>
             </div>
         </div>
@@ -123,12 +131,12 @@
         <div class="col">
             <div class="alert" :class="success ? 'alert-success' : 'alert-danger'">
                 {{ message }}
+                <div v-if="success && uploadTime">Upload took {{ uploadTime }} seconds.</div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal -->
 <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -138,7 +146,8 @@
             </div>
             <div class="modal-body">
                 <ul class="list-group">
-                    <li class="list-group-item" v-for="event in events" :key="event.eventId" @click="chooseEvent(event)" style="cursor: pointer;">
+                    <li class="list-group-item" v-for="event in events" :key="event.eventId" @click="chooseEvent(event)"
+                        style="cursor: pointer;">
                         <strong>{{ event.title }}</strong><br>
                         <small>ID: {{ event.eventId }}</small><br>
                         <small>User: {{ event.username }}</small><br>
@@ -151,19 +160,21 @@
 </div>
 
 <script>
-    const { createApp, ref, reactive, computed, onMounted } = Vue;
+    const { createApp, ref, computed, onMounted } = Vue;
 
     createApp({
       setup() {
         const eventId = ref('');
         const username = ref('');
+        const batchSize = ref(1);
         const events = ref([]);
         const selectedEvent = ref(null);
-
         const files = ref([]);
         const message = ref('');
         const success = ref(false);
         const uploading = ref(false);
+        const uploadTime = ref(null);
+
         const fullUploadPath = '{baseBackendPath}' + '/api/uploads';
 
         const overallProgress = computed(() => {
@@ -193,7 +204,6 @@
           selectedEvent.value = event;
           eventId.value = event.eventId;
           username.value = event.username;
-
           const modalEl = document.getElementById('eventModal');
           const modal = bootstrap.Modal.getInstance(modalEl);
           modal.hide();
@@ -244,13 +254,36 @@
             return;
           }
 
+          if (batchSize.value < 1) {
+            message.value = "Batch size must be at least 1.";
+            success.value = false;
+            return;
+          }
+
           uploading.value = true;
           message.value = '';
+          uploadTime.value = null;
+
+          const startTime = performance.now();
 
           try {
-            for (let file of files.value) {
-              await uploadSingleFile(file);
+            for (let i = 0; i < files.value.length; i += batchSize.value) {
+              const batch = files.value.slice(i, i + batchSize.value);
+              await Promise.all(batch.map(file => uploadSingleFile(file)));
             }
+
+            // Final "complete" notification
+            await fetch('/api/uploads/complete', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            eventId: eventId.value,
+                            imagesAmount: files.value.length,
+                          }),
+                        });
+
+            const endTime = performance.now();
+            uploadTime.value = ((endTime - startTime) / 1000).toFixed(2);
             message.value = "All files uploaded successfully.";
             success.value = true;
             files.value = [];
@@ -274,18 +307,18 @@
           }
         };
 
-        onMounted(() => {
-          fetchEvents();
-        });
+        onMounted(fetchEvents);
 
         return {
           eventId,
           username,
+          batchSize,
           events,
           files,
           success,
           message,
           uploading,
+          uploadTime,
           overallProgress,
           handleFileChange,
           uploadFiles,
@@ -295,7 +328,6 @@
         };
       }
     }).mount('#app');
-
 </script>
 </body>
 </html>
