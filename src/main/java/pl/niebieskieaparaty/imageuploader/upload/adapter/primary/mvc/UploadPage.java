@@ -1,5 +1,7 @@
 package pl.niebieskieaparaty.imageuploader.upload.adapter.primary.mvc;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.ws.rs.GET;
@@ -8,7 +10,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @Path("/")
 @RequiredArgsConstructor
