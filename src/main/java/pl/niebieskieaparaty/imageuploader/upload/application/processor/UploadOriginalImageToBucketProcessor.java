@@ -45,6 +45,8 @@ public class UploadOriginalImageToBucketProcessor implements Processor {
         // Set S3 headers
         exchange.getIn().setHeader("CamelAwsS3Key", s3Key);
 
+        log.info("UWAGA THREADY: {} and name: {}", Thread.currentThread(), Thread.currentThread().getName());
+
         // Set file content as body
         exchange.getIn().setBody(dataHandler.getInputStream());
     }

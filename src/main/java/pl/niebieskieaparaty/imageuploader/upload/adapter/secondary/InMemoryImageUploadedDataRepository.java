@@ -3,7 +3,9 @@ package pl.niebieskieaparaty.imageuploader.upload.adapter.secondary;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.apache.commons.lang3.StringUtils;
 import pl.niebieskieaparaty.imageuploader.upload.application.port.secondary.ImageUploadedDataRepository;
+import pl.niebieskieaparaty.imageuploader.upload.core.DataNotFoundException;
 import pl.niebieskieaparaty.imageuploader.upload.core.EventId;
+import pl.niebieskieaparaty.imageuploader.upload.core.UploadException;
 import pl.niebieskieaparaty.imageuploader.upload.core.UploadedData;
 
 import java.util.*;
@@ -17,22 +19,26 @@ class InMemoryImageUploadedDataRepository implements ImageUploadedDataRepository
     @Override
     public void saveUploadedData(final UploadedData uploadedData) {
         if (uploadedData == null || StringUtils.isBlank(uploadedData.eventId())) {
-            throw new IllegalArgumentException("UploadedData and eventId must not be null");
+            throw new UploadException("UploadedData and eventId must not be null");
         }
-        final var eventId = EventId.of(UUID.fromString(uploadedData.eventId()));
-        final var uploadedDataList = repository
-                .computeIfAbsent(eventId, k -> Collections.synchronizedList(new ArrayList<>()));
-        uploadedDataList.add(uploadedData);
+        try {
+            final var eventId = EventId.of(UUID.fromString(uploadedData.eventId()));
+            final var uploadedDataList = repository
+                    .computeIfAbsent(eventId, k -> Collections.synchronizedList(new ArrayList<>()));
+            uploadedDataList.add(uploadedData);
+        } catch (IllegalArgumentException e) {
+            throw new UploadException("Invalid eventId format: " + uploadedData.eventId(), e);
+        }
     }
 
     @Override
     public void deleteEntryForEventId(final EventId eventId) {
         if (eventId == null || eventId.eventId() == null) {
-            throw new IllegalArgumentException("EventId must not be null");
+            throw new UploadException("EventId must not be null");
         }
         final var removedData = repository.remove(eventId);
         if (removedData == null) {
-            throw new IllegalArgumentException("There were no mapping in Repo for eventId: %s".formatted(eventId.eventId().toString()));
+            throw new DataNotFoundException("No data found for eventId: " + eventId.eventId());
         }
     }
 

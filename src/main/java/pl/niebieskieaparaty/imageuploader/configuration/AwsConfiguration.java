@@ -1,4 +1,4 @@
-package pl.niebieskieaparaty.imageuploader.upload.configuration;
+package pl.niebieskieaparaty.imageuploader.configuration;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Disposes;
@@ -8,11 +8,13 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @ApplicationScoped
 @Slf4j
-public class S3Configuration {
+public class AwsConfiguration {
 
     @ConfigProperty(name = "aws.access-key")
     String accessKey;
@@ -24,7 +26,28 @@ public class S3Configuration {
     String region;
 
     @Produces
-    @ApplicationScoped
+    public DynamoDbClient dynamoDbClient() {
+        log.info("Creating DynamoDB client for region: {}", region);
+        return DynamoDbClient.builder()
+                .region(Region.of(region))
+                .credentialsProvider(
+                        StaticCredentialsProvider.create(
+                                AwsBasicCredentials.create(accessKey, secretKey)))
+                .build();
+    }
+
+    @Produces
+    public S3Client s3Client() {
+        log.info("Creating S3 client for region: {}", region);
+        return S3Client.builder()
+                .region(Region.of(region))
+                .credentialsProvider(
+                        StaticCredentialsProvider.create(
+                                AwsBasicCredentials.create(accessKey, secretKey)))
+                .build();
+    }
+
+    @Produces
     public S3Presigner s3Presigner() {
         log.info("Initializing S3Presigner with region: {}", region);
         try {
