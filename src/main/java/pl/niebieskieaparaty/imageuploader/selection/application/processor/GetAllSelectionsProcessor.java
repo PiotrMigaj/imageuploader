@@ -14,7 +14,7 @@ import java.util.Map;
 
 @ApplicationScoped
 @Slf4j
-public class GetAllBlockedSelectionsProcessor implements Processor {
+public class GetAllSelectionsProcessor implements Processor {
 
     private static final String CAMEL_AWS_DDB_ITEMS = "CamelAwsDdbItems";
     private static final String SELECTION_ID = "selectionId";

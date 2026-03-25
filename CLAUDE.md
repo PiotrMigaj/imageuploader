@@ -1,206 +1,85 @@
-# Image Uploader - Project Overview for Claude Code
+# CLAUDE.md
 
-## Project Type & Technology Stack
-- **Framework**: Quarkus (Java web framework) version 3.23.3
-- **Language**: Java 21
-- **Build Tool**: Maven
-- **Architecture**: Hexagonal/Clean Architecture with Apache Camel integration
-- **Frontend**: Single HTML page with Vue.js 3 and Bootstrap 5
-- **Containerization**: Docker with JVM and native build options
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Core Purpose
-An image uploader application for "Niebieskie Aparaty" (Blue Cameras) that allows authenticated users to upload images to AWS S3, with automatic compression from JPEG to WebP format, and metadata storage in DynamoDB.
+## Build & Run Commands
 
-## Project Structure
-
-### Root Directory
-```
-/Users/piotrmigaj/Documents/development/personal/imageuploader/
-├── pom.xml                    # Maven configuration
-├── docker-compose.yaml       # Docker orchestration
-├── README.md                  # Basic Quarkus setup instructions
-├── src/
-│   ├── main/
-│   │   ├── java/pl/niebieskieaparaty/imageuploader/
-│   │   ├── resources/
-│   │   └── docker/            # Multiple Dockerfile variants
-│   └── test/
-└── target/                    # Build artifacts
-```
-
-### Main Source Structure (Hexagonal Architecture)
-The application follows hexagonal architecture patterns with clear separation:
-
-```
-src/main/java/pl/niebieskieaparaty/imageuploader/
-├── configuration/             # Application configuration
-├── event/                     # Event management domain
-│   ├── adapter/primary/rest/  # REST endpoints
-│   ├── application/           # Application services
-│   └── core/                  # Domain models
-├── gallery/                   # Gallery management domain  
-│   └── application/           # DynamoDB integration
-├── security/                  # Authentication & authorization
-│   └── adapter/primary/       # Login pages and logout
-└── upload/                    # Core upload functionality
-    ├── adapter/primary/       # REST API and MVC controllers
-    ├── application/           # Business logic & processors
-    └── core/                  # Domain objects (UploadedData)
-```
-
-## Key Features & Functionality
-
-### 1. Authentication
-- Form-based authentication using Quarkus Elytron
-- Two hardcoded admin users configured via environment variables
-- Session management with cookie-based authentication
-- Login page: `/login`, protected routes: `/*`
-
-### 2. Image Upload Pipeline
-**Upload Flow**: Image → S3 (Original) + S3 (WebP Compressed) → DynamoDB → Event Update
-
-**Key Components**:
-- `UploadRestRoute`: REST API endpoint (`/api/uploads`)
-- `UploadRoute`: Apache Camel routes for processing
-- `JpegToWebpImageCompressor`: JPEG to WebP conversion using cwebp binary
-- `S3PresignUrlProcessor`: Generates presigned URLs for uploaded files
-- Parallel upload to both original and compressed buckets
-
-### 3. Event Management
-- Events can be retrieved via `/api/events`
-- Events are updated with gallery information after successful uploads
-- Integration with Camel for event processing
-
-### 4. Gallery Management
-- DynamoDB integration for storing upload metadata
-- Tracks original and compressed file information
-
-## Configuration
-
-### Application Properties (`application.properties`)
-Key configurations:
-- **Authentication**: Form-based with embedded users
-- **File Upload**: 20MB max body size
-- **AWS Integration**: S3 and DynamoDB credentials
-- **Security**: HTTP-only cookies, 1-hour session timeout
-
-### Environment Variables Required
 ```bash
-PIOTR_PASSWORD=<password>
-ANNA_PASSWORD=<password>
-AWS_ACCESS_KEY=<key>
-AWS_SECRET_KEY=<secret>
-AWS_REGION=<region>
-AWS_BUCKET_NAME=<bucket>
-BASE_BACKEND_PATH=<backend_path>
+./mvnw quarkus:dev              # Dev mode with hot reload (http://localhost:8080)
+./mvnw package                  # Build JAR (output: target/quarkus-app/quarkus-run.jar)
+./mvnw package -Dnative         # Build native executable (requires GraalVM)
+./mvnw test                     # Run unit tests
+./mvnw verify                   # Run unit + integration tests
+./mvnw test -Dtest=ClassName    # Run a single test class
 ```
 
-## Frontend Architecture
+Docker: `docker-compose up --build` (uses `src/main/docker/Dockerfile.jvm`, requires `.env` file)
 
-### Single Page Application
-- **File**: `src/main/resources/templates/index.html`
-- **Framework**: Vue.js 3 with Composition API
-- **Styling**: Bootstrap 5 with custom CSS variables
-- **Features**:
-  - Event selection modal
-  - Multi-file upload with progress tracking
-  - Real-time upload progress per file and overall
-  - Responsive design with modern UI
+## Tech Stack
 
-### Authentication UI
-- **File**: `src/main/resources/templates/login.html`
-- Clean, minimalist login form
-- Error and logout message handling
-- Consistent branding with main application
+- **Quarkus 3.23.3** with Java 21, Maven, Lombok
+- **Apache Camel** for all integration/processing pipelines (S3, DynamoDB, file operations)
+- **AWS**: S3 (image storage), DynamoDB (metadata in `GalleriesCamel`, `Events`, `Selection` tables)
+- **Frontend**: Vue.js 3 + Bootstrap 5 embedded in Qute HTML templates (`src/main/resources/templates/`)
+- **Auth**: Quarkus Elytron form-based login with embedded users
+- **Image processing**: cwebp binary (JPEG to WebP conversion, installed in Docker)
 
-## Build & Deployment
+## Architecture
 
-### Development
-```bash
-./mvnw quarkus:dev          # Development mode with hot reload
+Hexagonal architecture with 6 bounded contexts: `upload`, `event`, `gallery`, `selection`, `file`, `security`.
+
+Each domain follows: `adapter/primary/rest/` (REST endpoints) | `application/` (Camel routes + processors) | `core/` (domain records)
+
+### Key Pattern: Apache Camel Routes
+
+All business logic flows through Camel routes, not traditional service classes. Each domain defines:
+- A `*Route.java` class with the Camel DSL route definitions
+- A `*RouteApi.java` class with route URI constants (e.g., `DIRECT_UPLOAD_IMAGE_TO_BUCKETS = "direct:uploadImageToBuckets"`)
+- `*Processor.java` classes that implement `Processor` for individual processing steps
+
+REST endpoints (`*RestRoute.java`) receive HTTP requests and delegate to Camel routes via `ProducerTemplate.sendBodyAndHeaders()`.
+
+### Upload Pipeline (core flow)
+
+```
+POST /api/uploads (multipart: eventId, username, file)
+  → direct:uploadImageToBuckets
+    → Multicast (parallel):
+        ├─ direct:uploadImageToOriginalFolder → S3 upload → presigned URL
+        └─ direct:uploadImageToCompressedFolder → JPEG→WebP compress → S3 upload → presigned URL
+    → UploadAggregationStrategy merges results
+    → Save to InMemoryImageUploadedDataRepository
+
+POST /api/uploads/complete (JSON: eventId, imagesAmount)
+  → Validates count matches uploaded files
+  → For each file: save to DynamoDB (GalleriesCamel table)
+  → Update Event with camelGallery=true flag
+  → Clear in-memory data
 ```
 
-### Production Builds
-```bash
-./mvnw package              # Standard JAR
-./mvnw package -Dnative     # Native executable (GraalVM)
+The upload is a two-phase process: files upload individually to S3 (phase 1), then a completion call persists all metadata to DynamoDB at once (phase 2).
+
+### S3 Key Structure
+
+- Original: `{username}/{eventId}/images/original/{filename}`
+- Compressed: `{username}/{eventId}/images/compressed/{filename}.webp`
+
+### Selection Processing Flow
+
+```
+GET /api/selections?blocked=false → DynamoDB scan with filter → List<Selection>
+POST /api/selections/process → Get selected image names from DynamoDB
+  → Move matching .jpg files from source directory to {baseDir}/wybrane/ subfolder
 ```
 
-### Docker Support
-- **JVM**: `src/main/docker/Dockerfile.jvm` (includes cwebp installation)
-- **Native**: Multiple native Docker variants available
-- **Compose**: `docker-compose.yaml` for orchestrated deployment
+## Environment Variables
 
-## Key Dependencies
+Required (see `.env` file): `PIOTR_PASSWORD`, `ANNA_PASSWORD`, `AWS_ACCESS_KEY`, `AWS_SECRET_KEY`, `AWS_REGION`, `AWS_BUCKET_NAME`, `BASE_BACKEND_PATH`
 
-### Core Framework
-- `quarkus-rest`: REST API framework
-- `quarkus-rest-jackson`: JSON serialization
-- `quarkus-qute-web`: Template engine for HTML pages
+## Architectural Constraints
 
-### Integration
-- `camel-quarkus-*`: Apache Camel for integration patterns
-- `camel-quarkus-aws2-s3`: S3 integration
-- `camel-quarkus-aws2-ddb`: DynamoDB integration
-
-### Security
-- `quarkus-elytron-security-properties-file`: Authentication
-
-### Utilities
-- `lombok`: Code generation
-- `c-webp`: WebP image conversion library
-
-## Architecture Patterns
-
-### 1. Hexagonal Architecture
-Clear separation between:
-- **Adapters** (REST, MVC): External interfaces
-- **Application** (Services, Processors): Business logic
-- **Core** (Domain): Pure domain objects
-
-### 2. Apache Camel Integration
-- Route-based processing with clear separation of concerns
-- Parallel processing for original and compressed uploads
-- Aggregation strategy for combining results
-
-### 3. Domain-Driven Design
-Separate bounded contexts for:
-- **Upload**: Core image upload functionality
-- **Event**: Event management
-- **Gallery**: Image gallery and metadata
-- **Security**: Authentication and authorization
-
-## Development Guidelines
-
-### Code Organization
-- Follow existing package structure with adapter/application/core layers
-- Use Apache Camel routes for complex processing workflows
-- Leverage Quarkus CDI for dependency injection
-- Keep domain objects pure (see `UploadedData` record)
-
-### Testing
-- JUnit 5 and REST Assured configured
-- Integration tests using `quarkus-junit5`
-
-### Branching
-- Main branch: `main`
-- Current development: `dev/rea/selection-mover`
-- Recent commits focus on Docker setup and base path configuration
-
-## Important Notes for Claude Code
-
-1. **Security**: The application uses embedded user authentication - be cautious when modifying security configuration
-2. **AWS Integration**: All file operations use Apache Camel routes - maintain this pattern for consistency
-3. **Image Processing**: The cwebp binary is installed in Docker - ensure this dependency is maintained
-4. **Environment Variables**: The application requires multiple AWS-related environment variables to function
-5. **Frontend**: Single HTML page with embedded Vue.js - modifications should maintain this architecture
-6. **Architecture**: Maintain hexagonal architecture patterns when adding new features
-
-## Common Tasks
-- **Adding new upload processors**: Extend in `upload/application/processor/`
-- **Modifying upload flow**: Update `UploadRoute.java` Camel routes
-- **Frontend changes**: Modify `templates/index.html` Vue.js code
-- **Authentication**: Configure in `application.properties`
-- **New REST endpoints**: Follow existing pattern in `adapter/primary/rest/`
-
-This project represents a modern Java microservice with clean architecture, cloud integration, and a responsive frontend, designed for efficient image upload and processing workflows.
+- All file/cloud operations must go through Apache Camel routes — do not use raw AWS SDK calls directly
+- Domain objects in `core/` are Java records — keep them pure with no framework dependencies
+- Frontend pages are single HTML files with embedded Vue.js — no build tooling or separate frontend project
+- The `InMemoryImageUploadedDataRepository` holds upload state between the two-phase upload — it's intentionally not persisted
+- DynamoDB clients are created per-domain in route configurations (not shared beans) using credentials from `application.properties`

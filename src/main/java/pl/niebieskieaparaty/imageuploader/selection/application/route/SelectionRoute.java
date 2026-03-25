@@ -8,7 +8,7 @@ import org.apache.camel.component.aws2.ddb.Ddb2Operations;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import pl.niebieskieaparaty.imageuploader.file.application.route.FileRouteApi;
 import pl.niebieskieaparaty.imageuploader.file.core.FileSelectionRequest;
-import pl.niebieskieaparaty.imageuploader.selection.application.processor.GetAllBlockedSelectionsProcessor;
+import pl.niebieskieaparaty.imageuploader.selection.application.processor.GetAllSelectionsProcessor;
 import pl.niebieskieaparaty.imageuploader.selection.application.processor.GetSelectedImageNamesProcessor;
 import pl.niebieskieaparaty.imageuploader.selection.core.SelectedImages;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -27,7 +27,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SelectionRoute extends RouteBuilder {
 
-    private final GetAllBlockedSelectionsProcessor getAllBlockedSelectionsProcessor;
+    private final GetAllSelectionsProcessor getAllSelectionsProcessor;
     private final GetSelectedImageNamesProcessor getSelectedImageNamesProcessor;
 
     @ConfigProperty(name = "aws.access-key")
@@ -65,7 +65,7 @@ public class SelectionRoute extends RouteBuilder {
                     exchange.getIn().setHeader(Ddb2Constants.CONSISTENT_READ, true);
                 })
                 .toF("aws2-ddb://%s?amazonDDBClient=#selectionCustomDynamoClient", "Selection")
-                .process(getAllBlockedSelectionsProcessor);
+                .process(getAllSelectionsProcessor);
 
         from(SelectionRouteApi.DIRECT_PROCESS_SELECTION)
                 .routeId("processSelection")
@@ -109,5 +109,20 @@ public class SelectionRoute extends RouteBuilder {
                 })
                 .toF("aws2-ddb://%s?amazonDDBClient=#selectionCustomDynamoClient", "Selection")
                 .process(getSelectedImageNamesProcessor);
+
+        from(SelectionRouteApi.DIRECT_GET_ALL_NOT_BLOCKED_SELECTIONS)
+                .routeId("getAllNotBlockedSelectionsRoute")
+                .process(exchange -> {
+                    final Map<String, software.amazon.awssdk.services.dynamodb.model.Condition> conditionMap = new HashMap<>();
+                    conditionMap.put("blocked", software.amazon.awssdk.services.dynamodb.model.Condition.builder()
+                            .comparisonOperator(ComparisonOperator.EQ)
+                            .attributeValueList(AttributeValue.builder().bool(false).build())
+                            .build());
+                    exchange.getIn().setHeader(Ddb2Constants.OPERATION, Ddb2Operations.Scan);
+                    exchange.getIn().setHeader(Ddb2Constants.SCAN_FILTER, conditionMap);
+                    exchange.getIn().setHeader(Ddb2Constants.CONSISTENT_READ, true);
+                })
+                .toF("aws2-ddb://%s?amazonDDBClient=#selectionCustomDynamoClient", "Selection")
+                .process(getAllSelectionsProcessor);
     }
 }

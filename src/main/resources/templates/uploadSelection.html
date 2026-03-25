@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>SELECTION UPLOADER | NIEBIESKIE APARATY</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Italiana&family=Montserrat:wght@300;400;500;600&display=swap"
+          rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        :root {
+          --primary-color: #ffffff;
+          --secondary-color: #121212;
+          --accent-color: #f5f5f5;
+          --text-light: #989898;
+        }
+
+        body {
+          font-family: 'Montserrat', sans-serif;
+          background-color: var(--primary-color);
+          color: var(--secondary-color);
+          min-height: 100vh;
+        }
+
+        .navbar-custom {
+          padding: 1.2rem 2rem;
+          border-bottom: 1px solid #e6e6e6;
+          background-color: var(--primary-color);
+        }
+
+        .navbar-brand {
+          font-family: 'Italiana', serif;
+          font-size: 1.6rem;
+          letter-spacing: 1.5px;
+        }
+
+        .logout-btn {
+          background: none;
+          border: none;
+          font-size: 1rem;
+          color: var(--secondary-color);
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: color 0.2s;
+        }
+
+        .logout-btn:hover {
+          color: #444;
+        }
+    </style>
+</head>
+<body id="app">
+<nav class="navbar navbar-custom d-flex justify-content-between align-items-center">
+    <span class="navbar-brand">NIEBIESKIE APARATY – SELECTION UPLOADER</span>
+    <button class="logout-btn" @click="logout">
+        <i class="bi bi-box-arrow-right"></i> Logout
+    </button>
+</nav>
+
+<div class="container py-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="eventId" class="form-label">Event ID</label>
+            <input type="text" id="eventId" class="form-control" v-model="eventId" placeholder="Enter Event ID">
+        </div>
+        <div class="col-md-3">
+            <label for="selectionId" class="form-label">Selection ID</label>
+            <input type="text" id="selectionId" class="form-control" v-model="selectionId" placeholder="Enter Selection ID">
+        </div>
+        <div class="col-md-2">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" id="username" class="form-control" v-model="username" placeholder="Enter Username">
+        </div>
+        <div class="col-md-2">
+            <label for="batchSize" class="form-label">Batch Size</label>
+            <input type="number" id="batchSize" class="form-control" v-model.number="batchSize" min="1">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label d-block invisible">Action</label>
+            <button class="btn btn-dark w-100" @click="selectSelection">
+                <i class="bi bi-check-circle me-1"></i>Select
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="container py-4">
+    <div class="row mb-3">
+        <div class="col">
+            <label class="form-label">Select Images</label>
+            <input type="file" class="form-control" @change="handleFileChange" multiple accept="image/*">
+        </div>
+    </div>
+
+    <div class="row mb-3" v-if="files.length">
+        <div class="col">
+            <ul class="list-group">
+                <li class="list-group-item d-flex justify-content-between align-items-center" v-for="file in files"
+                    :key="file.name">
+                    {{ file.name }}
+                    <div class="progress w-50">
+                        <div class="progress-bar" :style="{ width: file.progress + '%' }">{{ Math.round(file.progress)
+                            }}%
+                        </div>
+                    </div>
+                </li>
+            </ul>
+            <div class="mt-3">
+                <strong>Overall Progress:</strong>
+                <div class="progress">
+                    <div class="progress-bar bg-success" :style="{ width: overallProgress + '%' }">{{
+                        Math.round(overallProgress) }}%
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col text-end">
+            <button class="btn btn-primary" :disabled="uploading || files.length === 0" @click="uploadFiles">
+                <i class="bi bi-cloud-upload me-1"></i> Upload to Cloud
+            </button>
+        </div>
+    </div>
+
+    <div class="row mt-3" v-if="message">
+        <div class="col">
+            <div class="alert" :class="success ? 'alert-success' : 'alert-danger'">
+                {{ message }}
+                <div v-if="success && uploadTime">Upload took {{ uploadTime }} seconds.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="selectionModal" tabindex="-1" aria-labelledby="selectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="selectionModalLabel">Select Selection</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="list-group">
+                    <li class="list-group-item" v-for="selection in selections" :key="selection.selectionId" @click="chooseSelection(selection)"
+                        style="cursor: pointer;">
+                        <strong>{{ selection.eventTitle }}</strong><br>
+                        <small>Selection ID: {{ selection.selectionId }}</small><br>
+                        <small>Event ID: {{ selection.eventId }}</small><br>
+                        <small>Username: {{ selection.username }}</small>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const eventId = ref('');
+        const selectionId = ref('');
+        const username = ref('');
+        const batchSize = ref(1);
+        const selections = ref([]);
+        const selectedSelection = ref(null);
+        const files = ref([]);
+        const message = ref('');
+        const success = ref(false);
+        const uploading = ref(false);
+        const uploadTime = ref(null);
+
+        const fullUploadPath = '{baseBackendPath}' + '/api/selection-uploads';
+
+        const overallProgress = computed(() => {
+          if (files.value.length === 0) return 0;
+          const total = files.value.reduce((sum, f) => sum + f.progress, 0);
+          return total / files.value.length;
+        });
+
+        const fetchSelections = async () => {
+          try {
+            const res = await fetch('/api/selections?blocked=false');
+            if (!res.ok) throw new Error("Failed to load selections");
+            selections.value = await res.json();
+          } catch (err) {
+            console.error(err);
+            alert("Unable to fetch selections");
+          }
+        };
+
+        const selectSelection = () => {
+          console.log('Selections:', selections.value);
+          const modalEl = document.getElementById('selectionModal');
+          const modal = new bootstrap.Modal(modalEl);
+          modal.show();
+        };
+
+        const chooseSelection = (selection) => {
+          selectedSelection.value = selection;
+          selectionId.value = selection.selectionId;
+          eventId.value = selection.eventId;
+          username.value = selection.username;
+          const modalEl = document.getElementById('selectionModal');
+          const modal = bootstrap.Modal.getInstance(modalEl);
+          modal.hide();
+        };
+
+        const handleFileChange = (event) => {
+          files.value = Array.from(event.target.files).map(file => ({
+            raw: file,
+            name: file.name,
+            progress: 0
+          }));
+        };
+
+        const uploadSingleFile = (fileObj) => {
+          return new Promise((resolve, reject) => {
+            const formData = new FormData();
+            formData.append('file', fileObj.raw);
+            formData.append('eventId', eventId.value);
+            formData.append('selectionId', selectionId.value);
+            formData.append('username', username.value);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', fullUploadPath, true);
+
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) {
+                fileObj.progress = (event.loaded / event.total) * 100;
+              }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                fileObj.progress = 100;
+                resolve(xhr.responseText);
+              } else {
+                reject(new Error(`Failed to upload ${fileObj.name}`));
+              }
+            };
+
+            xhr.onerror = () => reject(new Error('Network error'));
+            xhr.send(formData);
+          });
+        };
+
+        const uploadFiles = async () => {
+          if (!eventId.value || !selectionId.value || !username.value || files.value.length === 0) {
+            message.value = "Event ID, Selection ID, Username, and at least one file are required.";
+            success.value = false;
+            return;
+          }
+
+          if (batchSize.value < 1) {
+            message.value = "Batch size must be at least 1.";
+            success.value = false;
+            return;
+          }
+
+          uploading.value = true;
+          message.value = '';
+          uploadTime.value = null;
+
+          const startTime = performance.now();
+
+          try {
+            for (let i = 0; i < files.value.length; i += batchSize.value) {
+              const batch = files.value.slice(i, i + batchSize.value);
+              await Promise.all(batch.map(file => uploadSingleFile(file)));
+            }
+
+            // Final "complete" notification
+            await fetch('/api/selection-uploads/complete', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            eventId: eventId.value,
+                            selectionId: selectionId.value,
+                            username: username.value,
+                            imagesAmount: files.value.length,
+                          }),
+                        });
+
+            const endTime = performance.now();
+            uploadTime.value = ((endTime - startTime) / 1000).toFixed(2);
+            message.value = "All files uploaded successfully.";
+            success.value = true;
+            files.value = [];
+          } catch (err) {
+            console.error(err);
+            message.value = err.message;
+            success.value = false;
+          } finally {
+            uploading.value = false;
+          }
+        };
+
+        const logout = async () => {
+          try {
+            await fetch('/logout', { method: 'POST', credentials: 'same-origin' });
+            document.cookie = "quarkus-credential=; Max-Age=0; path=/";
+            document.cookie = "quarkus-redirect-location=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/upload;";
+            window.location.href = "/login?logout=true";
+          } catch (error) {
+            alert("Logout failed. Try again.");
+          }
+        };
+
+        onMounted(fetchSelections);
+
+        return {
+          eventId,
+          selectionId,
+          username,
+          batchSize,
+          selections,
+          files,
+          success,
+          message,
+          uploading,
+          uploadTime,
+          overallProgress,
+          handleFileChange,
+          uploadFiles,
+          selectSelection,
+          chooseSelection,
+          logout,
+        };
+      }
+    }).mount('#app');
+</script>
+</body>
+</html>
