@@ -56,6 +56,9 @@ public class JpegToWebpImageCompressor implements Processor {
             compressImage(tempInputFile, tempOutputFile, dimensions);
 
             final var compressedBytes = Files.readAllBytes(tempOutputFile.toPath());
+            if (compressedBytes.length == 0) {
+                throw new ImageCompressionException("cwebp produced empty output for: " + originalFileName);
+            }
             final var compressedFileName = generateCompressedFileName(originalFileName);
 
             setExchangeHeaders(exchange, compressedBytes, compressedFileName, dimensions);
