@@ -26,29 +26,28 @@ public class FileCleanupProcessor implements Processor {
         final var movedFiles = (List<String>) exchange.getProperty("movedFiles");
         final String sourceDir = exchange.getProperty("sourceDirectory", String.class);
 
+        final var sourcePath = java.nio.file.Paths.get(sourceDir);
+        final var camelPath = sourcePath.resolve(CAMEL_SUBFOLDER);
+
+        try {
+            if (Files.exists(camelPath)) {
+                cleanupCamelDirectory(camelPath, exchange);
+            } else {
+                exchange.getIn().setHeader("cleanupMessage", "No .camel directory found to clean up");
+            }
+        } catch (Exception e) {
+            exchange.getIn().setHeader("cleanupError", e.getMessage());
+            exchange.getIn().setHeader("verificationStatus", "CLEANUP_FAILED");
+            return;
+        }
+
         // Verify all files were moved successfully
         final boolean allFilesMoved = movedFiles.size() == originalFiles.size();
 
         if (allFilesMoved) {
-            final var sourcePath = java.nio.file.Paths.get(sourceDir);
-            final var camelPath = sourcePath.resolve(CAMEL_SUBFOLDER);
-
-            try {
-                // Clean up .camel directory if it exists
-                if (Files.exists(camelPath)) {
-                    cleanupCamelDirectory(camelPath, exchange);
-                } else {
-                    exchange.getIn().setHeader("cleanupMessage", "No .camel directory found to clean up");
-                }
-
-                exchange.getIn().setBody(movedFiles);
-                exchange.getIn().setHeader("verificationStatus", "SUCCESS");
-                exchange.getIn().setHeader("movedCount", movedFiles.size());
-
-            } catch (Exception e) {
-                exchange.getIn().setHeader("cleanupError", e.getMessage());
-                exchange.getIn().setHeader("verificationStatus", "CLEANUP_FAILED");
-            }
+            exchange.getIn().setBody(movedFiles);
+            exchange.getIn().setHeader("verificationStatus", "SUCCESS");
+            exchange.getIn().setHeader("movedCount", movedFiles.size());
         } else {
             exchange.getIn().setHeader("verificationStatus", "INCOMPLETE_MOVE");
             exchange.getIn().setHeader("expectedCount", originalFiles.size());

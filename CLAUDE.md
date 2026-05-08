@@ -72,6 +72,8 @@ POST /api/selections/process → Get selected image names from DynamoDB
   → Move matching .jpg files from source directory to {baseDir}/wybrane/ subfolder
 ```
 
+**Camel file consumer gotcha:** `pollEnrich` with the file component moves consumed files to `.camel` by default (`noop=false`). Use `delete=true` instead when the intent is a file-move (consume + write to target) — this deletes the source file and prevents `.camel` from being created. See `FileRoute.java` `batchMoveImagesRoute`.
+
 ## Environment Variables
 
 Required (see `.env` file): `PIOTR_PASSWORD`, `ANNA_PASSWORD`, `AWS_ACCESS_KEY`, `AWS_SECRET_KEY`, `AWS_REGION`, `AWS_BUCKET_NAME`, `BASE_BACKEND_PATH`

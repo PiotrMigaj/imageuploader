@@ -37,7 +37,7 @@ public class FileRoute extends RouteBuilder {
                 .setHeader("sourceFilePath", body()) // e.g. subfolder/image.jpg
                 .pollEnrich()
                     .simple("file:${exchangeProperty.sourceDirectory}?fileName=${header.sourceFilePath}"
-                            + "&noop=false&idempotent=false")
+                            + "&delete=true&idempotent=false")
                     .timeout(10000)
                 .choice()
                     .when(body().isNotNull())
